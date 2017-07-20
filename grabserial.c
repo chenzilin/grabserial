@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <unistd.h>
+#include <getopt.h>
 #include <string.h>
 #include <strings.h>
 #include <stdlib.h>
@@ -97,27 +98,63 @@ int set_serial_opt(int fd, char *portSpeed, int nBits, char nEvent, int nStop)
     return 0;
 }
 
+void main_usage()
+{
+    fprintf(stderr, "Usage: grabserial [options]\n"
+                    "    -d, --device     serial port device(/dev/ttyS1)\n"
+                    "    -b, --baudRate   baud rate\n"
+                    "    -x, --outputHex  show serial port data by hex\n"
+                    "    -h, --help       this help\n");
+    exit(-1);
+}
+
 int main(int argc ,char *argv[])
 {
+    int opt;
+    int outputHex = 0;
+    char *device = "/dev/ttyS1";
+    char *baudRate = "115200";
+
+    struct option long_options[] = {
+        {"device", required_argument, 0, 'd'},
+        {"baudRate", required_argument, 0, 'b'},
+        {"outputHex", no_argument, 0, 'x'},
+        {"help", no_argument, 0, 'h' } };
+
+    while ((opt = getopt_long(argc, argv, "hxd:b:", long_options, NULL)) != -1) {
+        switch (opt) {
+        case 'd':
+            device = optarg;
+            break;
+        case 'b':
+            baudRate = optarg;
+            break;
+        case 'x':
+            outputHex = 1;
+            break;
+        case 'h':
+            main_usage();
+            break;
+        case '?':
+        default:
+            main_usage();
+            break;
+        }
+    }
+
     int i = 0;
     static int j = 1;
     int fd = -1;
     int nread = -1;
-    int outputHex = 1;
     char buff[256];
     unsigned char time_buf[25];
 
-    if (argc != 3) {
-        fprintf(stderr, "Usage: %s /dev/ttyS1 115200 \n", argv[0]);
+    if ((fd = open(device, O_RDWR|O_NOCTTY|O_NDELAY)) < 0) {
+        fprintf(stderr, "Can't open serial: %s\n", device);
         return -1;
     }
 
-    if ((fd = open(argv[1], O_RDWR|O_NOCTTY|O_NDELAY)) < 0) {
-        fprintf(stderr, "Can't open serial: %s\n", argv[1]);
-        return -1;
-    }
-
-    if (set_serial_opt(fd, argv[2], 8, 'N', 1) < 0) {
+    if (set_serial_opt(fd, baudRate, 8, 'N', 1) < 0) {
         fprintf(stderr, "Set_opt error!\n");
         return -1;
     }
